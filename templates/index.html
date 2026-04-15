@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Legendary UNO Arena</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+</head>
+<body class="landing-body">
+  <div class="meteor-rain" aria-hidden="true"></div>
+  <div class="landing-shell">
+    <header class="hero-card glass reveal" data-delay="0">
+      <div class="hero-copy">
+        <span class="hero-badge"><img src="{{ url_for('static', filename='icons/uno.svg') }}" alt=""> UNO Arena</span>
+        <h1>نسخة UNO الأسطورية داخل غرف صوتية حية</h1>
+        <p>طاولة واسعة، لوبي داخل الغرفة، شخصيات مستوحاة من Resident Evil، صوت مباشر، وتحريك أوراق سينمائي.</p>
+        <div class="hero-stats">
+          <div><strong>108</strong><span>كرتًا فعليًا</span></div>
+          <div><strong>2-10</strong><span>لاعبين</span></div>
+          <div><strong>Live</strong><span>صوت مباشر</span></div>
+        </div>
+      </div>
+      <div class="hero-preview">
+        <div class="card-fan">
+          <img src="{{ url_for('static', filename='cards/red_5_a.svg') }}" class="fan-card a" alt="">
+          <img src="{{ url_for('static', filename='cards/blue_draw2_a.svg') }}" class="fan-card b" alt="">
+          <img src="{{ url_for('static', filename='cards/wild4_a.svg') }}" class="fan-card c" alt="">
+        </div>
+      </div>
+    </header>
+
+    <main class="landing-grid">
+      <section class="form-card glass reveal" data-delay="1">
+        <div class="section-head">
+          <h2>ابدأ الآن</h2>
+          <p>اكتب اسمك، اختر شخصيتك، ثم أنشئ غرفة أو انضم إلى غرفة موجودة.</p>
+        </div>
+        <form id="entryForm" class="entry-form">
+          <label>
+            <span>اسم اللاعب</span>
+            <input id="username" maxlength="24" placeholder="اكتب اسمك">
+          </label>
+          <label>
+            <span>رمز الغرفة</span>
+            <input id="roomId" maxlength="24" placeholder="مثال: FIRE-UNO">
+          </label>
+          <div class="actions-row">
+            <button type="button" id="createRoomBtn" class="primary-btn">إنشاء غرفة</button>
+            <button type="button" id="joinRoomBtn" class="secondary-btn">انضمام لغرفة</button>
+          </div>
+          <div class="form-note">
+            <img src="{{ url_for('static', filename='icons/alert.svg') }}" alt="">
+            <span>الحد الأدنى لبدء الجولة هو لاعبان.</span>
+          </div>
+        </form>
+      </section>
+
+      <section class="characters-card glass reveal" data-delay="2">
+        <div class="section-head compact">
+          <h2>اختر شخصيتك</h2>
+          <p>خمس شخصيات بصور ويب مباشرة ووصف قصير لكل واحدة.</p>
+        </div>
+        <div class="character-grid" id="characterGrid">
+          {% for key, character in characters.items() %}
+          <article class="character-tile {% if loop.first %}active{% endif %}" data-character="{{ key }}">
+            <div class="character-photo-wrap">
+              <img src="{{ character.avatar }}" alt="{{ character.name }}" class="character-photo" loading="lazy" referrerpolicy="no-referrer">
+            </div>
+            <div class="character-copy">
+              <h3>{{ character.name }}</h3>
+              <p>{{ character.bio }}</p>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    window.CHARACTERS = {{ characters|tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+</body>
+</html>
