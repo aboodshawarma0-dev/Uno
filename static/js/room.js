@@ -28,15 +28,10 @@ const els = {
   loadingBar: document.getElementById('loadingBar'),
   roomLobby: document.getElementById('roomLobby'),
   roomCode: document.getElementById('roomCode'),
-  profileNameInput: document.getElementById('profileNameInput'),
+  profileDisplayName: document.getElementById('profileDisplayName'),
   myAvatarPreview: document.getElementById('myAvatarPreview'),
-  saveProfileBtn: document.getElementById('saveProfileBtn'),
-  avatarInput: document.getElementById('avatarInput'),
-  clearAvatarBtn: document.getElementById('clearAvatarBtn'),
+  profileDisplayCharacter: document.getElementById('profileDisplayCharacter'),
   avatarStatus: document.getElementById('avatarStatus'),
-  lobbyStars: document.getElementById('lobbyStars'),
-  characterSpotlight: document.getElementById('characterSpotlight'),
-  lobbyCharacterGrid: document.getElementById('lobbyCharacterGrid'),
   settingsToggleBtn: document.getElementById('settingsToggleBtn'),
   settingsPanel: document.getElementById('settingsPanel'),
   startingCardsInput: document.getElementById('startingCardsInput'),
@@ -70,12 +65,8 @@ const els = {
 };
 
 els.roomCode.textContent = roomId;
-els.profileNameInput.value = profile.username;
-renderCharacterSpotlight(profile.character);
-markActiveCharacter(profile.character);
 renderProfileAvatar();
 renderAvatarStatus();
-createLobbyStars();
 startIntro();
 
 function persistProfile() {
@@ -142,89 +133,31 @@ function isCustomAvatar(value) {
 
 function renderProfileAvatar() {
   els.myAvatarPreview.src = profile.avatar || currentCharacterAvatar();
+  if (els.profileDisplayName) els.profileDisplayName.textContent = profile.username || 'لاعب جديد';
+  if (els.profileDisplayCharacter) {
+    const character = window.CHARACTERS[profile.character] || window.CHARACTERS[characterKeys[0]];
+    els.profileDisplayCharacter.textContent = `الشخصية المختارة: ${character?.name || '—'}`;
+  }
 }
+
 
 function renderAvatarStatus() {
   if (!els.avatarStatus) return;
   if (isCustomAvatar(profile.avatar)) {
-    els.avatarStatus.textContent = 'تم تفعيل صورتك المخصصة — ستظهر لكل اللاعبين داخل الغرفة.';
-    els.avatarStatus.classList.add('custom');
+    els.avatarStatus.textContent = 'تستخدم الآن صورة مخصصة محفوظة من اللوبي الخارجي. للرجوع أو التعديل ارجع إلى الصفحة الرئيسية.';
   } else {
-    els.avatarStatus.textContent = 'تستخدم صورة الشخصية المختارة حاليًا.';
-    els.avatarStatus.classList.remove('custom');
+    els.avatarStatus.textContent = 'تستخدم صورة الشخصية المختارة من اللوبي الخارجي. لتغييرها ارجع إلى الصفحة الرئيسية.';
   }
 }
 
-async function fileToOptimizedDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('read_failed'));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('image_failed'));
-      img.onload = () => {
-        const maxSide = 420;
-        let { width, height } = img;
-        const ratio = Math.min(maxSide / width, maxSide / height, 1);
-        width = Math.max(1, Math.round(width * ratio));
-        height = Math.max(1, Math.round(height * ratio));
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.86));
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
 
-function createLobbyStars() {
-  if (!els.lobbyStars || els.lobbyStars.childElementCount) return;
-  const colors = ['#ffffff', '#ffe6a7', '#dff3ff', '#ffd8a8', '#f7f7ff'];
-  for (let i = 0; i < 80; i += 1) {
-    const star = document.createElement('span');
-    star.className = 'lobby-star';
-    star.style.left = `${Math.random() * 100}%`;
-    star.style.top = `${Math.random() * 100}%`;
-    star.style.setProperty('--size', `${(Math.random() * 3.2) + 1.2}px`);
-    star.style.setProperty('--delay', `${Math.random() * 6}s`);
-    star.style.setProperty('--duration', `${7 + (Math.random() * 10)}s`);
-    star.style.setProperty('--drift', `${(Math.random() * 28) - 14}px`);
-    star.style.setProperty('--glow', colors[Math.floor(Math.random() * colors.length)]);
-    els.lobbyStars.appendChild(star);
-  }
-}
 
-function renderCharacterSpotlight(key) {
-  const character = window.CHARACTERS[key] || window.CHARACTERS[characterKeys[0]];
-  els.characterSpotlight.innerHTML = `
-    <div class="spotlight-inner">
-      <img src="${character.avatar}" alt="${character.name}">
-      <div class="spotlight-copy">
-        <h3>${character.name}</h3>
-        <p>${character.bio}</p>
-      </div>
-    </div>`;
-  renderProfileAvatar();
-}
 
-function markActiveCharacter(key) {
-  document.querySelectorAll('.lobby-character-card').forEach((card) => {
-    card.classList.toggle('active', card.dataset.character === key);
-  });
-}
 
-function updateLocalCharacter(key) {
-  if (!window.CHARACTERS[key]) return;
-  profile.character = key;
-  markActiveCharacter(key);
-  renderCharacterSpotlight(key);
-  renderAvatarStatus();
-  persistProfile();
-}
+
+
+
+
 
 function getPlayer(sid) {
   return roomState?.players?.find((player) => player.id === sid);
@@ -398,12 +331,9 @@ function renderMyHand() {
 function renderLobbyAndSettings() {
   const me = roomState?.players?.find((player) => player.id === mySid);
   if (me) {
-    els.profileNameInput.value = me.name;
     profile.username = me.name;
     profile.character = me.character;
     profile.avatar = me.avatar || '';
-    markActiveCharacter(me.character);
-    renderCharacterSpotlight(me.character);
     renderProfileAvatar();
     renderAvatarStatus();
     persistProfile();
@@ -622,8 +552,8 @@ function syncPeers() {
 function joinRoomNow() {
   const cleanName = (profile.username || '').trim();
   if (!cleanName) {
-    showToast('اكتب اسمك أولًا ثم احفظه قبل الدخول إلى الغرفة', 'warning');
-    els.profileNameInput.focus();
+    showToast('لا يوجد اسم محفوظ. سيتم إعادتك إلى اللوبي الخارجي.', 'warning');
+    setTimeout(() => { location.href = `/?room=${encodeURIComponent(roomId)}`; }, 600);
     return;
   }
   socket.emit('join_room', {
@@ -634,57 +564,6 @@ function joinRoomNow() {
   });
   hasJoinedRoom = true;
 }
-
-els.lobbyCharacterGrid.addEventListener('click', (event) => {
-  const card = event.target.closest('.lobby-character-card');
-  if (!card) return;
-  updateLocalCharacter(card.dataset.character);
-});
-
-els.saveProfileBtn.addEventListener('click', () => {
-  profile.username = (els.profileNameInput.value || '').trim().slice(0, 24);
-  if (!profile.username) {
-    showToast('لازم تختار اسم قبل ما تدخل', 'error');
-    els.profileNameInput.focus();
-    return;
-  }
-  persistProfile();
-  if (!hasJoinedRoom && socket.connected) {
-    joinRoomNow();
-  } else {
-    socket.emit('update_profile', {
-      room_id: roomId,
-      username: profile.username,
-      character: profile.character,
-      avatar: profile.avatar || '',
-    });
-  }
-  showToast('تم حفظ الاسم والشخصية والصورة بنجاح', 'success');
-});
-
-els.avatarInput?.addEventListener('change', async (event) => {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  try {
-    const dataUrl = await fileToOptimizedDataUrl(file);
-    profile.avatar = dataUrl;
-    renderProfileAvatar();
-    renderAvatarStatus();
-    persistProfile();
-    showToast('تم تجهيز صورتك المخصصة. اضغط حفظ لتطبيقها داخل الغرفة.', 'success');
-  } catch (_) {
-    showToast('تعذر قراءة الصورة. جرب صورة أصغر أو بصيغة مختلفة.', 'error');
-  }
-  event.target.value = '';
-});
-
-els.clearAvatarBtn?.addEventListener('click', () => {
-  profile.avatar = '';
-  renderProfileAvatar();
-  renderAvatarStatus();
-  persistProfile();
-  showToast('تمت العودة إلى صورة الشخصية المختارة', 'info');
-});
 
 els.startingCardsInput.addEventListener('input', () => {
   els.startingCardsValue.textContent = els.startingCardsInput.value;
@@ -751,6 +630,10 @@ els.myHandTray.addEventListener('click', (event) => {
 });
 
 socket.on('connect', () => {
+  if (!profile.username) {
+    location.href = `/?room=${encodeURIComponent(roomId)}`;
+    return;
+  }
   if (!hasJoinedRoom) {
     joinRoomNow();
   } else {

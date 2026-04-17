@@ -1,27 +1,39 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 768" role="img" aria-label="UNO load card">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#10161f"/>
-      <stop offset="100%" stop-color="#04080d"/>
+    <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#53d4ff"/>
+      <stop offset="48%" stop-color="#ffe36e"/>
+      <stop offset="100%" stop-color="#ff5a72"/>
     </linearGradient>
-    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#38bdf8"/>
-      <stop offset="50%" stop-color="#ffcf3e"/>
-      <stop offset="100%" stop-color="#ff4f63"/>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#101924"/>
+      <stop offset="100%" stop-color="#05090f"/>
     </linearGradient>
-    <radialGradient id="glow" cx="50%" cy="40%" r="65%">
-      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.95"/>
-      <stop offset="40%" stop-color="#3ddc97" stop-opacity="0.65"/>
+    <radialGradient id="glow" cx="50%" cy="42%" r="62%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.96"/>
+      <stop offset="42%" stop-color="#3ddc97" stop-opacity="0.62"/>
+      <stop offset="72%" stop-color="#ffcf3e" stop-opacity="0.22"/>
       <stop offset="100%" stop-color="#081119" stop-opacity="0"/>
     </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.08"/>
+    </linearGradient>
   </defs>
-  <rect x="22" y="22" rx="50" ry="50" width="468" height="724" fill="url(#bg)" stroke="url(#rim)" stroke-width="18"/>
-  <ellipse cx="256" cy="356" rx="176" ry="222" fill="url(#glow)" opacity="0.85"/>
-  <g transform="translate(256 356) rotate(-18)">
-    <ellipse cx="0" cy="0" rx="168" ry="226" fill="#121722" stroke="#ffffff" stroke-opacity="0.12" stroke-width="8"/>
-    <ellipse cx="0" cy="0" rx="142" ry="188" fill="#0a0f17"/>
-    <path d="M-78 -130 C30 -178 136 -116 110 -12 C96 54 38 124 -32 148 C-116 176 -184 122 -178 44 C-174 -26 -140 -92 -78 -130 Z" fill="#ffb000" opacity="0.95"/>
-    <text x="0" y="26" fill="#fff5df" font-family="Tajawal, Arial, sans-serif" font-size="92" font-weight="900" text-anchor="middle">LOAD</text>
+
+  <rect x="18" y="18" width="476" height="732" rx="54" fill="url(#body)" stroke="url(#frame)" stroke-width="16"/>
+  <rect x="34" y="34" width="444" height="700" rx="42" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
+  <ellipse cx="256" cy="352" rx="178" ry="226" fill="url(#glow)"/>
+
+  <g transform="translate(256 350) rotate(-18)">
+    <ellipse cx="0" cy="0" rx="170" ry="228" fill="#151d29" stroke="url(#ring)" stroke-width="7"/>
+    <ellipse cx="0" cy="0" rx="146" ry="194" fill="#090f17"/>
+    <path d="M-70 -138 C24 -182 136 -130 122 -24 C111 60 54 121 -29 154 C-109 186 -181 134 -182 54 C-183 -22 -138 -94 -70 -138 Z" fill="#ffb000"/>
+    <text x="0" y="30" fill="#fff8e8" font-family="Tajawal, Arial, sans-serif" font-size="94" font-weight="900" text-anchor="middle">LOAD</text>
   </g>
-  <text x="256" y="640" fill="#eef6ff" font-family="Tajawal, Arial, sans-serif" font-size="42" font-weight="800" text-anchor="middle">UNO ARENA</text>
+
+  <g fill="#eaf6ff" font-family="Tajawal, Arial, sans-serif" text-anchor="middle">
+    <text x="256" y="102" font-size="40" font-weight="900">UNO ARENA</text>
+    <text x="256" y="660" font-size="34" font-weight="700" opacity="0.95">BY ABDALLAH</text>
+  </g>
 </svg>
