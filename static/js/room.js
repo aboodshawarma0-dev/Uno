@@ -15,6 +15,9 @@ let remoteAudioEls = {};
 let localStream = null;
 let audioContext = null;
 let speakingInterval = null;
+let audioUnlockHintShown = false;
+let localSpeaking = false;
+let pendingIceCandidates = {};
 let micMuted = false;
 let speakerMuted = false;
 let hasJoinedRoom = false;
@@ -152,6 +155,70 @@ function renderAvatarStatus() {
   }
 }
 
+function setSpeakingVisual(sid, speaking) {
+  const node = document.querySelector(`.player-node[data-sid="${sid}"]`);
+  if (!node) return;
+  node.classList.toggle('speaking', speaking);
+  const badge = node.querySelector('.voice-live');
+  if (badge) badge.classList.toggle('active', speaking);
+  const micBadge = node.querySelector('.player-mic');
+  if (micBadge) micBadge.classList.toggle('live', speaking);
+}
+
+function emitSpeakingState(next) {
+  if (localSpeaking === next) return;
+  localSpeaking = next;
+  if (mySid) setSpeakingVisual(mySid, next);
+  socket.emit('speaking_state', { room_id: roomId, speaking: next });
+}
+
+function addLocalTracksToPeer(pc) {
+  if (!pc || !localStream) return;
+  const existingTrackIds = new Set(
+    pc.getSenders().map((sender) => sender.track && sender.track.id).filter(Boolean),
+  );
+  localStream.getAudioTracks().forEach((track) => {
+    if (!existingTrackIds.has(track.id)) {
+      pc.addTrack(track, localStream);
+    }
+  });
+}
+
+async function playRemoteAudio(audio) {
+  if (!audio) return;
+  audio.muted = speakerMuted;
+  try {
+    await audio.play();
+  } catch (error) {
+    if (!audioUnlockHintShown) {
+      audioUnlockHintShown = true;
+      showToast('اضغط أي مكان داخل الغرفة مرة واحدة لتفعيل سماع اللاعبين.', 'info');
+    }
+  }
+}
+
+function unlockAudioPlayback() {
+  if (audioContext?.state === 'suspended') {
+    audioContext.resume().catch(() => {});
+  }
+  Object.values(remoteAudioEls).forEach((audio) => {
+    playRemoteAudio(audio);
+  });
+}
+
+async function flushPendingIce(targetSid, pc) {
+  const queued = pendingIceCandidates[targetSid] || [];
+  if (!queued.length || !pc?.remoteDescription) return;
+  pendingIceCandidates[targetSid] = [];
+  for (const candidate of queued) {
+    try {
+      await pc.addIceCandidate(candidate);
+    } catch (error) {
+      console.error('queued ice error', error);
+    }
+  }
+}
+
 
 
 
@@ -244,13 +311,17 @@ function renderPlayers() {
     const x = centerX + Math.cos(baseAngle) * radiusX + jitterX;
     const y = centerY + Math.sin(baseAngle) * radiusY + jitterY;
     const node = document.createElement('article');
-    node.className = `player-node${player.is_viewer ? ' self' : ''}${player.is_turn ? ' turn' : ''}${player.speaking ? ' speaking' : ''}`;
+    const speakingNow = player.speaking || (player.id === mySid && localSpeaking);
+    node.className = `player-node${player.is_viewer ? ' self' : ''}${player.is_turn ? ' turn' : ''}${speakingNow ? ' speaking' : ''}`;
     node.dataset.sid = player.id;
     node.style.left = `${x}px`;
     node.style.top = `${y}px`;
     node.innerHTML = `
-      <span class="voice-live${player.speaking ? ' active' : ''}">يتحدث</span>
+      <span class="voice-live${speakingNow ? ' active' : ''}">يتحدث</span>
       <img class="avatar" src="${player.avatar || window.CHARACTERS[player.character]?.avatar || ''}" alt="${player.name}">
+      <span class="player-mic${player.muted ? ' muted' : ''}${speakingNow ? ' live' : ''}">
+        <img src="${iconSrc(player.muted ? 'mic-off' : 'mic')}" alt="${player.muted ? 'مايك مكتوم' : 'مايك مفتوح'}">
+      </span>
       <div class="player-head">
         <div class="player-name" title="${player.name}">${player.name}</div>
         ${player.is_host ? '<span class="mini-badge host">مضيف</span>' : ''}
@@ -467,19 +538,31 @@ function setSpeakerMuted(nextMuted) {
   speakerMuted = nextMuted;
   Object.values(remoteAudioEls).forEach((el) => { el.muted = speakerMuted; });
   els.speakerIcon.src = iconSrc(speakerMuted ? 'speaker-off' : 'speaker');
+  if (!speakerMuted) unlockAudioPlayback();
   socket.emit('toggle_speaker', { room_id: roomId, speaker_muted: speakerMuted });
 }
 
 async function initAudio() {
-  if (localStream) return localStream;
+  if (localStream) {
+    unlockAudioPlayback();
+    return localStream;
+  }
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: 1,
+        latency: 0,
+      },
       video: false,
     });
     localStream.getAudioTracks().forEach((track) => { track.enabled = !micMuted; });
+    Object.values(peers).forEach((pc) => addLocalTracksToPeer(pc));
     setupSpeakingDetector();
     syncPeers();
+    unlockAudioPlayback();
     return localStream;
   } catch (error) {
     showToast('تعذر تشغيل المايك. اسمح بالوصول للصوت من المتصفح.', 'error');
@@ -492,36 +575,68 @@ function setupSpeakingDetector() {
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
   const source = audioContext.createMediaStreamSource(localStream);
   const analyser = audioContext.createAnalyser();
-  analyser.fftSize = 512;
+  analyser.fftSize = 256;
+  analyser.smoothingTimeConstant = 0.12;
   source.connect(analyser);
-  const data = new Uint8Array(analyser.frequencyBinCount);
+  const data = new Uint8Array(analyser.fftSize);
   let active = false;
+  let hotFrames = 0;
+  let coolFrames = 0;
+
   speakingInterval = setInterval(() => {
     if (micMuted) {
+      hotFrames = 0;
+      coolFrames = 0;
       if (active) {
         active = false;
-        socket.emit('speaking_state', { room_id: roomId, speaking: false });
+        emitSpeakingState(false);
       }
       return;
     }
-    analyser.getByteFrequencyData(data);
-    const avg = data.reduce((sum, value) => sum + value, 0) / data.length;
-    const next = avg > 22;
-    if (next !== active) {
-      active = next;
-      socket.emit('speaking_state', { room_id: roomId, speaking: next });
+
+    analyser.getByteTimeDomainData(data);
+    let sum = 0;
+    let peak = 0;
+    for (let i = 0; i < data.length; i += 1) {
+      const normalized = (data[i] - 128) / 128;
+      const abs = Math.abs(normalized);
+      sum += normalized * normalized;
+      if (abs > peak) peak = abs;
     }
-  }, 240);
+    const rms = Math.sqrt(sum / data.length);
+    const hot = rms > 0.04 || peak > 0.16;
+
+    if (hot) {
+      hotFrames += 1;
+      coolFrames = 0;
+    } else {
+      coolFrames += 1;
+      hotFrames = 0;
+    }
+
+    if (!active && hotFrames >= 1) {
+      active = true;
+      emitSpeakingState(true);
+      return;
+    }
+
+    if (active && coolFrames >= 2) {
+      active = false;
+      emitSpeakingState(false);
+    }
+  }, 75);
 }
 
 function createPeerConnection(targetSid) {
-  if (peers[targetSid]) return peers[targetSid];
+  pendingIceCandidates[targetSid] ||= [];
+  if (peers[targetSid]) {
+    addLocalTracksToPeer(peers[targetSid]);
+    return peers[targetSid];
+  }
   const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
   peers[targetSid] = pc;
 
-  if (localStream) {
-    localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
-  }
+  addLocalTracksToPeer(pc);
 
   pc.onicecandidate = (event) => {
     if (event.candidate) {
@@ -535,11 +650,25 @@ function createPeerConnection(targetSid) {
       audio = document.createElement('audio');
       audio.autoplay = true;
       audio.playsInline = true;
-      audio.muted = speakerMuted;
+      audio.controls = false;
+      audio.preload = 'auto';
+      audio.style.display = 'none';
       remoteAudioEls[targetSid] = audio;
       document.body.appendChild(audio);
     }
     audio.srcObject = event.streams[0];
+    playRemoteAudio(audio);
+  };
+
+  pc.onconnectionstatechange = () => {
+    const badStates = ['failed', 'closed', 'disconnected'];
+    if (badStates.includes(pc.connectionState)) {
+      remoteAudioEls[targetSid]?.remove();
+      delete remoteAudioEls[targetSid];
+      delete peers[targetSid];
+      delete pendingIceCandidates[targetSid];
+      try { pc.close(); } catch (_) {}
+    }
   };
 
   return pc;
@@ -549,7 +678,8 @@ async function ensureOffer(targetSid) {
   if (!mySid || mySid > targetSid || !localStream) return;
   try {
     const pc = createPeerConnection(targetSid);
-    const offer = await pc.createOffer();
+    if (pc.signalingState !== 'stable') return;
+    const offer = await pc.createOffer({ offerToReceiveAudio: true });
     await pc.setLocalDescription(offer);
     socket.emit('webrtc_offer', { target_sid: targetSid, offer });
   } catch (error) {
@@ -572,9 +702,11 @@ function syncPeers() {
   const others = roomState.players.map((player) => player.id).filter((id) => id !== mySid);
   cleanupPeers(others);
   others.forEach((sid) => {
-    createPeerConnection(sid);
+    const pc = createPeerConnection(sid);
+    addLocalTracksToPeer(pc);
     ensureOffer(sid);
   });
+  unlockAudioPlayback();
 }
 
 function clearJoinRetry() {
@@ -653,6 +785,7 @@ els.settingsToggleBtn.addEventListener('click', () => {
 els.micToggleBtn.addEventListener('click', async () => {
   if (!localStream) await initAudio();
   setMicMuted(!micMuted);
+  if (micMuted) emitSpeakingState(false);
 });
 
 els.speakerToggleBtn.addEventListener('click', () => setSpeakerMuted(!speakerMuted));
@@ -705,14 +838,30 @@ socket.on('joined_ack', async ({ sid }) => {
 socket.on('toast', (payload) => showToast(payload.message, payload.type));
 
 socket.on('user_speaking', ({ user_id, speaking }) => {
-  const node = document.querySelector(`.player-node[data-sid="${user_id}"]`);
-  if (node) node.classList.toggle('speaking', speaking);
+  if (user_id === mySid) localSpeaking = speaking;
+  setSpeakingVisual(user_id, speaking);
 });
 
 socket.on('webrtc_offer', async ({ offer, from_sid }) => {
   try {
+    if (!localStream) {
+      try {
+        await initAudio();
+      } catch (_) {
+        // سنحاول متابعة الاتصال حتى لو لم يُمنح المايك بعد.
+      }
+    }
     const pc = createPeerConnection(from_sid);
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    addLocalTracksToPeer(pc);
+    if (pc.signalingState === 'have-local-offer') {
+      await Promise.all([
+        pc.setLocalDescription({ type: 'rollback' }),
+        pc.setRemoteDescription(new RTCSessionDescription(offer)),
+      ]);
+    } else {
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    }
+    await flushPendingIce(from_sid, pc);
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     socket.emit('webrtc_answer', { target_sid: from_sid, answer });
@@ -724,7 +873,9 @@ socket.on('webrtc_offer', async ({ offer, from_sid }) => {
 socket.on('webrtc_answer', async ({ answer, from_sid }) => {
   try {
     const pc = createPeerConnection(from_sid);
+    if (pc.signalingState !== 'have-local-offer') return;
     await pc.setRemoteDescription(new RTCSessionDescription(answer));
+    await flushPendingIce(from_sid, pc);
   } catch (error) {
     console.error('answer receive error', error);
   }
@@ -733,6 +884,10 @@ socket.on('webrtc_answer', async ({ answer, from_sid }) => {
 socket.on('webrtc_ice', async ({ candidate, from_sid }) => {
   try {
     const pc = createPeerConnection(from_sid);
+    if (!pc.remoteDescription) {
+      pendingIceCandidates[from_sid].push(candidate);
+      return;
+    }
     await pc.addIceCandidate(candidate);
   } catch (error) {
     console.error('ice receive error', error);
@@ -754,10 +909,12 @@ window.addEventListener('resize', () => {
 
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && !localStream) initAudio().catch(() => {});
+  if (!document.hidden) unlockAudioPlayback();
 });
 
 document.body.addEventListener('click', () => {
   if (!localStream) initAudio().catch(() => {});
+  unlockAudioPlayback();
 }, { once: true });
 
 window.addEventListener('beforeunload', () => {

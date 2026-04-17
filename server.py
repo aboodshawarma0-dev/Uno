@@ -332,7 +332,6 @@ def handle_speaking_state(data):
         speaking = bool(data.get('speaking', False))
         room['users'][request.sid]['speaking'] = speaking
         socketio.emit('user_speaking', {'user_id': request.sid, 'speaking': speaking}, to=room_id)
-        emit_room_state(room_id)
 
 
 @socketio.on('webrtc_offer')
