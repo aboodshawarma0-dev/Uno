@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 768" role="img" aria-label="UNO load card">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10161f"/>
+      <stop offset="100%" stop-color="#04080d"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#ffcf3e"/>
+      <stop offset="100%" stop-color="#ff4f63"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.95"/>
+      <stop offset="40%" stop-color="#3ddc97" stop-opacity="0.65"/>
+      <stop offset="100%" stop-color="#081119" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="22" y="22" rx="50" ry="50" width="468" height="724" fill="url(#bg)" stroke="url(#rim)" stroke-width="18"/>
+  <ellipse cx="256" cy="356" rx="176" ry="222" fill="url(#glow)" opacity="0.85"/>
+  <g transform="translate(256 356) rotate(-18)">
+    <ellipse cx="0" cy="0" rx="168" ry="226" fill="#121722" stroke="#ffffff" stroke-opacity="0.12" stroke-width="8"/>
+    <ellipse cx="0" cy="0" rx="142" ry="188" fill="#0a0f17"/>
+    <path d="M-78 -130 C30 -178 136 -116 110 -12 C96 54 38 124 -32 148 C-116 176 -184 122 -178 44 C-174 -26 -140 -92 -78 -130 Z" fill="#ffb000" opacity="0.95"/>
+    <text x="0" y="26" fill="#fff5df" font-family="Tajawal, Arial, sans-serif" font-size="92" font-weight="900" text-anchor="middle">LOAD</text>
+  </g>
+  <text x="256" y="640" fill="#eef6ff" font-family="Tajawal, Arial, sans-serif" font-size="42" font-weight="800" text-anchor="middle">UNO ARENA</text>
+</svg>

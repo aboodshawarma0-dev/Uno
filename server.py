@@ -8,42 +8,38 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 from uno_engine import UnoGame
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'uno-secret')
-socketio = SocketIO(app, cors_allowed_origins='*', async_mode='gevent', max_http_buffer_size=5_000_000)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'legendary-uno-secret')
+socketio = SocketIO(
+    app,
+    cors_allowed_origins='*',
+    async_mode=os.environ.get('SOCKETIO_ASYNC_MODE', 'gevent'),
+    max_http_buffer_size=5_000_000,
+)
 
 rooms = {}
 ROOM_ID_RE = re.compile(r'[^a-zA-Z0-9_-]+')
+DEFAULT_STARTING_CARDS = 7
 
 CHARACTERS = {
     'leon': {
-        'name': 'Leon S. Kennedy',
-        'bio': 'عميل ميداني هادئ ودقيق، ممتاز تحت الضغط ويحب اللعب المحسوب.',
-        'avatar': 'https://upload.wikimedia.org/wikipedia/commons/3/36/Resident_Evil_4_-_Leon_S._Kennedy.jpg',
-        'avatar_url': 'https://upload.wikimedia.org/wikipedia/commons/3/36/Resident_Evil_4_-_Leon_S._Kennedy.jpg',
+        'name': 'Leon',
+        'bio': 'هادئ، سريع، ويحب اللعب المحسوب. مناسب لمن يريد افتتاحًا قويًا وتحكمًا ذكيًا في الطاولة.',
+        'avatar': '/static/avatars/leon.jpg',
     },
-    'jill': {
-        'name': 'Jill Valentine',
-        'bio': 'مقاتلة ذكية وسريعة التكيّف، تركّز على النجاة والقرارات السريعة.',
-        'avatar': 'https://upload.wikimedia.org/wikipedia/commons/c/c0/Jill_Valentine%2C_Resident_Evil_character_%28photographed_by_Shin_Illuits%2C_2011%29.jpg',
-        'avatar_url': 'https://upload.wikimedia.org/wikipedia/commons/c/c0/Jill_Valentine%2C_Resident_Evil_character_%28photographed_by_Shin_Illuits%2C_2011%29.jpg',
-    },
-    'claire': {
-        'name': 'Claire Redfield',
-        'bio': 'جريئة وتحب المخاطرة الذكية، أسلوبها هجومي لكن متوازن.',
-        'avatar': 'https://upload.wikimedia.org/wikipedia/commons/d/d1/Claire_Resident_Evil_2.jpg',
-        'avatar_url': 'https://upload.wikimedia.org/wikipedia/commons/d/d1/Claire_Resident_Evil_2.jpg',
-    },
-    'ada': {
-        'name': 'Ada Wong',
-        'bio': 'غامضة وأنيقة وتحب المباغتة، مثالية لمن يريد شخصية واثقة.',
-        'avatar': 'https://upload.wikimedia.org/wikipedia/commons/5/5d/Cosplayer_of_Ada_Wong%2C_Resident_Evil_at_PF23_20151025.jpg',
-        'avatar_url': 'https://upload.wikimedia.org/wikipedia/commons/5/5d/Cosplayer_of_Ada_Wong%2C_Resident_Evil_at_PF23_20151025.jpg',
+    'wesker': {
+        'name': 'Albert Wesker',
+        'bio': 'بارد وواثق ويعشق المفاجآت. مناسب لمن يحب قلب الإيقاع فجأة واستغلال أوراق الحركة.',
+        'avatar': '/static/avatars/wesker.jpg',
     },
     'chris': {
-        'name': 'Chris Redfield',
-        'bio': 'قائد مباشر وقوي، مناسب لمن يحب السيطرة على إيقاع الجولة.',
-        'avatar': 'https://upload.wikimedia.org/wikipedia/commons/d/db/Chris_Redfield_cosplayer_at_NCCBF_2010-04-18_2.JPG',
-        'avatar_url': 'https://upload.wikimedia.org/wikipedia/commons/d/db/Chris_Redfield_cosplayer_at_NCCBF_2010-04-18_2.JPG',
+        'name': 'Chris',
+        'bio': 'قتالي ومباشر ويضغط على الخصوم من البداية. ممتاز لمن يفضل أسلوبًا هجوميًا ثابتًا.',
+        'avatar': '/static/avatars/chris.jpg',
+    },
+    'saddam': {
+        'name': 'صدام حسين',
+        'bio': 'شخصية ضيف مختلفة تضيف حضورًا غير متوقع إلى اللوبي، لمن يريد طابعًا غريبًا ولافتًا.',
+        'avatar': '/static/avatars/saddam.jpg',
     },
 }
 
@@ -55,74 +51,96 @@ def index():
 
 @app.route('/room/<room_id>')
 def room(room_id):
-    clean_room_id = ROOM_ID_RE.sub('', room_id)[:24] or 'ROOM'
+    clean_room_id = sanitize_room_id(room_id) or 'ROOM'
     return render_template('room.html', room_id=clean_room_id, characters=CHARACTERS)
+
+
+def sanitize_room_id(raw_room_id):
+    return ROOM_ID_RE.sub('', (raw_room_id or '').strip())[:24].upper()
+
+
+def sanitize_username(raw_username):
+    username = (raw_username or '').strip()[:24]
+    return username or 'زائر'
+
+
+def sanitize_avatar(raw_avatar, fallback_avatar):
+    if isinstance(raw_avatar, str):
+        avatar = raw_avatar.strip()
+        if avatar.startswith('data:image/') and ';base64,' in avatar and len(avatar) <= 2_800_000:
+            return avatar
+    return fallback_avatar
+
+
+def ensure_room(room_id):
+    room = rooms.get(room_id)
+    if room:
+        return room
+    room = {
+        'users': OrderedDict(),
+        'host_sid': None,
+        'join_counter': 0,
+        'settings': {'starting_cards': DEFAULT_STARTING_CARDS},
+        'game': UnoGame(),
+    }
+    rooms[room_id] = room
+    return room
 
 
 @socketio.on('join_room')
 def handle_join(data):
-    room_id = ROOM_ID_RE.sub('', (data.get('room_id') or ''))[:24]
-    username = (data.get('username') or 'زائر').strip()[:24]
-    character_key = (data.get('character') or 'leon').strip().lower()
-    avatar = (data.get('avatar') or '').strip()
+    room_id = sanitize_room_id(data.get('room_id'))
     if not room_id:
+        emit('toast', {'message': 'رمز الغرفة غير صالح', 'type': 'error'})
         return
 
-    character = CHARACTERS.get(character_key, CHARACTERS['leon'])
-    room = rooms.setdefault(room_id, {
-        'users': OrderedDict(),
-        'host_sid': None,
-        'join_counter': 0,
-        'settings': {'starting_cards': 7},
-        'game': UnoGame(),
-    })
+    room = ensure_room(room_id)
+    room['join_counter'] += 1
+
+    character_key = (data.get('character') or 'leon').strip().lower()
+    if character_key not in CHARACTERS:
+        character_key = 'leon'
+    character = CHARACTERS[character_key]
+
+    chosen_avatar = sanitize_avatar(data.get('avatar'), character['avatar'])
+
+    user = room['users'].get(request.sid)
+    if user is None:
+        room['users'][request.sid] = {
+            'id': request.sid,
+            'name': sanitize_username(data.get('username')),
+            'character': character_key,
+            'avatar': chosen_avatar,
+            'bio': character['bio'],
+            'speaking': False,
+            'muted': False,
+            'speaker_muted': False,
+            'join_seq': room['join_counter'],
+        }
+    else:
+        user['name'] = sanitize_username(data.get('username') or user.get('name'))
+        user['character'] = character_key
+        user['avatar'] = chosen_avatar
+        user['bio'] = character['bio']
+
+    if room['host_sid'] is None or room['host_sid'] not in room['users']:
+        room['host_sid'] = request.sid
 
     join_room(room_id)
-    room['join_counter'] += 1
-    room['users'][request.sid] = {
-        'id': request.sid,
-        'name': username,
-        'character': character_key,
-        'avatar': avatar or character['avatar'],
-        'bio': character['bio'],
-        'speaking': False,
-        'muted': False,
-        'speaker_muted': False,
-        'join_seq': room['join_counter'],
-    }
-    if room['host_sid'] is None:
-        room['host_sid'] = request.sid
 
     emit('joined_ack', {'sid': request.sid, 'room_id': room_id, 'characters': CHARACTERS})
     emit_room_state(room_id)
-    emit('toast', {'message': f'انضم {username} إلى الغرفة', 'type': 'info'}, to=room_id, skip_sid=request.sid)
-
-
-@socketio.on('update_profile')
-def handle_update_profile(data):
-    room_id = data.get('room_id')
-    room = rooms.get(room_id)
-    if not room or request.sid not in room['users']:
-        return
-    user = room['users'][request.sid]
-    name = (data.get('username') or user['name']).strip()[:24]
-    character_key = (data.get('character') or user['character']).strip().lower()
-    avatar = (data.get('avatar') or user['avatar']).strip()
-    character = CHARACTERS.get(character_key, CHARACTERS['leon'])
-    user['name'] = name
-    user['character'] = character_key
-    user['bio'] = character['bio']
-    if avatar:
-        user['avatar'] = avatar
-    elif not user.get('avatar'):
-        user['avatar'] = character.get('avatar_url') or character['avatar']
-    emit_room_state(room_id)
+    socketio.emit(
+        'toast',
+        {'message': f'انضم {room["users"][request.sid]["name"]} إلى الغرفة', 'type': 'info'},
+        to=room_id,
+        skip_sid=request.sid,
+    )
 
 
 @socketio.on('leave_room_event')
 def handle_leave(data):
-    room_id = data.get('room_id')
-    _remove_user(room_id, request.sid)
+    _remove_user(sanitize_room_id(data.get('room_id')), request.sid)
 
 
 @socketio.on('disconnect')
@@ -133,48 +151,71 @@ def handle_disconnect():
             break
 
 
+@socketio.on('update_profile')
+def handle_update_profile(data):
+    room_id = sanitize_room_id(data.get('room_id'))
+    room = rooms.get(room_id)
+    if not room or request.sid not in room['users']:
+        return
+
+    user = room['users'][request.sid]
+    user['name'] = sanitize_username(data.get('username') or user['name'])
+
+    character_key = (data.get('character') or user['character']).strip().lower()
+    if character_key not in CHARACTERS:
+        character_key = user['character']
+    character = CHARACTERS[character_key]
+    user['character'] = character_key
+    user['avatar'] = sanitize_avatar(data.get('avatar', user.get('avatar')), character['avatar'])
+    user['bio'] = character['bio']
+
+    emit_room_state(room_id)
+
+
 @socketio.on('update_settings')
 def handle_update_settings(data):
-    room_id = data.get('room_id')
+    room_id = sanitize_room_id(data.get('room_id'))
     room = rooms.get(room_id)
-    if not room or room['host_sid'] != request.sid:
+    if not room:
         return
+    if room['host_sid'] != request.sid:
+        emit('toast', {'message': 'فقط المضيف يستطيع تعديل الإعدادات', 'type': 'error'})
+        return
+
     try:
-        starting_cards = int((data.get('starting_cards') or 7))
-    except Exception:
-        starting_cards = 7
+        starting_cards = int(data.get('starting_cards') or DEFAULT_STARTING_CARDS)
+    except (TypeError, ValueError):
+        starting_cards = DEFAULT_STARTING_CARDS
+
     room['settings']['starting_cards'] = max(3, min(12, starting_cards))
     emit_room_state(room_id)
+    emit('toast', {'message': 'تم حفظ إعدادات الجولة', 'type': 'success'})
 
 
 @socketio.on('start_game')
 def handle_start_game(data):
-    room_id = data.get('room_id')
+    room_id = sanitize_room_id(data.get('room_id'))
     room = rooms.get(room_id)
     if not room:
         return
     if room['host_sid'] != request.sid:
         emit('toast', {'message': 'فقط المضيف يستطيع بدء الجولة', 'type': 'error'})
         return
-    if len(room['users']) < 2:
-        emit('toast', {'message': 'تحتاج لاعبَين على الأقل لبدء UNO', 'type': 'error'})
-        return
 
     player_ids = list(room['users'].keys())
-    game = room['game']
     try:
-        game.start_round(player_ids, room['settings'].get('starting_cards', 7))
-    except Exception:
-        emit('toast', {'message': 'تعذر بدء الجولة', 'type': 'error'})
+        room['game'].start_round(player_ids, room['settings'].get('starting_cards', DEFAULT_STARTING_CARDS))
+    except ValueError as exc:
+        emit('toast', {'message': friendly_error(str(exc)), 'type': 'error'})
         return
 
     emit_room_state(room_id)
-    emit('toast', {'message': 'بدأت جولة UNO جديدة', 'type': 'success'}, to=room_id)
+    socketio.emit('toast', {'message': 'بدأت الجولة، حظًا موفقًا!', 'type': 'success'}, to=room_id)
 
 
 @socketio.on('play_card')
 def handle_play_card(data):
-    room_id = data.get('room_id')
+    room_id = sanitize_room_id(data.get('room_id'))
     room = rooms.get(room_id)
     if not room:
         return
@@ -187,7 +228,7 @@ def handle_play_card(data):
 
 @socketio.on('draw_card')
 def handle_draw_card(data):
-    room_id = data.get('room_id')
+    room_id = sanitize_room_id(data.get('room_id'))
     room = rooms.get(room_id)
     if not room:
         return
@@ -200,7 +241,7 @@ def handle_draw_card(data):
 
 @socketio.on('pass_turn')
 def handle_pass_turn(data):
-    room_id = data.get('room_id')
+    room_id = sanitize_room_id(data.get('room_id'))
     room = rooms.get(room_id)
     if not room:
         return
@@ -213,36 +254,37 @@ def handle_pass_turn(data):
 
 @socketio.on('call_uno')
 def handle_call_uno(data):
-    room_id = data.get('room_id')
+    room_id = sanitize_room_id(data.get('room_id'))
     room = rooms.get(room_id)
     if not room:
         return
     try:
         room['game'].call_uno(request.sid)
         emit_room_state(room_id)
-        emit('toast', {'message': 'UNO!', 'type': 'success'}, to=room_id)
+        socketio.emit('toast', {'message': f'UNO! — {room["users"][request.sid]["name"]}', 'type': 'success'}, to=room_id)
     except ValueError as exc:
         emit('toast', {'message': friendly_error(str(exc)), 'type': 'error'})
 
 
 @socketio.on('catch_uno')
 def handle_catch_uno(data):
-    room_id = data.get('room_id')
-    target_sid = data.get('target_sid')
+    room_id = sanitize_room_id(data.get('room_id'))
     room = rooms.get(room_id)
+    target_sid = data.get('target_sid')
     if not room:
         return
     try:
         room['game'].catch_uno(request.sid, target_sid)
         emit_room_state(room_id)
-        emit('toast', {'message': 'تم كشف لاعب نسي قول UNO', 'type': 'warning'}, to=room_id)
+        target_name = room['users'].get(target_sid, {}).get('name', 'لاعب')
+        socketio.emit('toast', {'message': f'تم كشف {target_name} لأنه نسي UNO', 'type': 'warning'}, to=room_id)
     except ValueError as exc:
         emit('toast', {'message': friendly_error(str(exc)), 'type': 'error'})
 
 
 @socketio.on('resolve_wild4')
 def handle_resolve_wild4(data):
-    room_id = data.get('room_id')
+    room_id = sanitize_room_id(data.get('room_id'))
     room = rooms.get(room_id)
     if not room:
         return
@@ -255,7 +297,7 @@ def handle_resolve_wild4(data):
 
 @socketio.on('toggle_mute')
 def handle_toggle_mute(data):
-    room_id = data.get('room_id')
+    room_id = sanitize_room_id(data.get('room_id'))
     room = rooms.get(room_id)
     if room and request.sid in room['users']:
         room['users'][request.sid]['muted'] = bool(data.get('muted', False))
@@ -264,7 +306,7 @@ def handle_toggle_mute(data):
 
 @socketio.on('toggle_speaker')
 def handle_toggle_speaker(data):
-    room_id = data.get('room_id')
+    room_id = sanitize_room_id(data.get('room_id'))
     room = rooms.get(room_id)
     if room and request.sid in room['users']:
         room['users'][request.sid]['speaker_muted'] = bool(data.get('speaker_muted', False))
@@ -273,27 +315,28 @@ def handle_toggle_speaker(data):
 
 @socketio.on('speaking_state')
 def handle_speaking_state(data):
-    room_id = data.get('room_id')
+    room_id = sanitize_room_id(data.get('room_id'))
     room = rooms.get(room_id)
     if room and request.sid in room['users']:
-        room['users'][request.sid]['speaking'] = bool(data.get('speaking', False))
-        emit('user_speaking', {'user_id': request.sid, 'speaking': room['users'][request.sid]['speaking']}, to=room_id)
+        speaking = bool(data.get('speaking', False))
+        room['users'][request.sid]['speaking'] = speaking
+        socketio.emit('user_speaking', {'user_id': request.sid, 'speaking': speaking}, to=room_id)
         emit_room_state(room_id)
 
 
 @socketio.on('webrtc_offer')
 def handle_offer(data):
-    emit('webrtc_offer', {'offer': data['offer'], 'from_sid': request.sid}, to=data['target_sid'])
+    socketio.emit('webrtc_offer', {'offer': data['offer'], 'from_sid': request.sid}, to=data['target_sid'])
 
 
 @socketio.on('webrtc_answer')
 def handle_answer(data):
-    emit('webrtc_answer', {'answer': data['answer'], 'from_sid': request.sid}, to=data['target_sid'])
+    socketio.emit('webrtc_answer', {'answer': data['answer'], 'from_sid': request.sid}, to=data['target_sid'])
 
 
 @socketio.on('webrtc_ice')
 def handle_ice(data):
-    emit('webrtc_ice', {'candidate': data['candidate'], 'from_sid': request.sid}, to=data['target_sid'])
+    socketio.emit('webrtc_ice', {'candidate': data['candidate'], 'from_sid': request.sid}, to=data['target_sid'])
 
 
 def emit_room_state(room_id):
@@ -303,7 +346,7 @@ def emit_room_state(room_id):
     users = list(room['users'].values())
     for sid in list(room['users'].keys()):
         state = room['game'].state_for(sid, users, room['host_sid'], room['settings'])
-        emit('room_state', state, to=sid)
+        socketio.emit('room_state', state, to=sid)
 
 
 def friendly_error(code):
@@ -333,28 +376,32 @@ def _remove_user(room_id, sid):
     room = rooms.get(room_id)
     if not room or sid not in room['users']:
         return
+
     leave_room(room_id, sid=sid)
     user = room['users'].pop(sid)
-    old_host = room['host_sid']
-    if old_host == sid:
+
+    if room['host_sid'] == sid:
         room['host_sid'] = select_next_host(room, user['join_seq'])
+
     room['game'].remove_player(sid)
+
     if not room['users']:
         del rooms[room_id]
         return
+
     emit_room_state(room_id)
-    emit('toast', {'message': f'غادر {user["name"]} الغرفة', 'type': 'info'}, to=room_id)
+    socketio.emit('toast', {'message': f'غادر {user["name"]} الغرفة', 'type': 'info'}, to=room_id)
 
 
 def select_next_host(room, departing_seq):
     users = list(room['users'].values())
     if not users:
         return None
-    higher = [u for u in users if u['join_seq'] > departing_seq]
+    higher = [user for user in users if user['join_seq'] > departing_seq]
     if higher:
-        higher.sort(key=lambda x: x['join_seq'])
+        higher.sort(key=lambda item: item['join_seq'])
         return higher[0]['id']
-    users.sort(key=lambda x: x['join_seq'])
+    users.sort(key=lambda item: item['join_seq'])
     return users[0]['id']
 
 

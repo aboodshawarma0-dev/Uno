@@ -11,59 +11,93 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/room.css') }}">
 </head>
 <body class="room-body">
+  <div id="loadingScreen" class="loading-screen">
+    <div class="loading-aurora"></div>
+    <div class="loading-panel">
+      <img src="{{ url_for('static', filename='cards/load.svg') }}" alt="load card" class="loading-card" id="loadingCard">
+      <h1>UNO : by abdallah</h1>
+      <div class="loading-bar-shell">
+        <div id="loadingBar" class="loading-bar"></div>
+      </div>
+      <div class="loading-label">Loading</div>
+    </div>
+  </div>
+
   <div class="room-backdrop"></div>
   <div id="toastStack" class="toast-stack"></div>
-  <div class="room-shell">
+
+  <div class="room-shell" id="roomShell">
     <header class="room-topbar glass">
       <div class="topbar-group">
         <a href="/" class="back-link"><img src="{{ url_for('static', filename='icons/room.svg') }}" alt=""> رجوع</a>
         <div class="room-id-chip">الغرفة: <strong id="roomCode">{{ room_id }}</strong></div>
       </div>
       <div class="topbar-group">
-        <button id="settingsToggleBtn" class="icon-btn hidden"><img src="{{ url_for('static', filename='icons/settings.svg') }}" alt=""></button>
-        <button id="micToggleBtn" class="icon-btn"><img id="micIcon" src="{{ url_for('static', filename='icons/mic.svg') }}" alt=""></button>
-        <button id="speakerToggleBtn" class="icon-btn"><img id="speakerIcon" src="{{ url_for('static', filename='icons/speaker.svg') }}" alt=""></button>
+        <button id="settingsToggleBtn" class="icon-btn hidden" title="الإعدادات"><img src="{{ url_for('static', filename='icons/settings.svg') }}" alt=""></button>
+        <button id="micToggleBtn" class="icon-btn" title="المايك"><img id="micIcon" src="{{ url_for('static', filename='icons/mic.svg') }}" alt=""></button>
+        <button id="speakerToggleBtn" class="icon-btn" title="السماعات"><img id="speakerIcon" src="{{ url_for('static', filename='icons/speaker.svg') }}" alt=""></button>
       </div>
     </header>
 
     <section id="roomLobby" class="room-lobby-panel glass">
+      <div id="lobbyStars" class="lobby-stars" aria-hidden="true"></div>
       <div class="lobby-left">
         <div class="panel-heading">
           <h1>لوبي الغرفة</h1>
-          <p>انتظر اكتمال اللاعبين، عدّل ملفك، ثم يبدأ المضيف الجولة من هنا.</p>
+          <p>هنا تثبت اسمك، تختار شخصيتك، ويمكنك أيضًا رفع صورة مخصصة من جهازك داخل اللوبي فقط بدون حذف أي ميزة أخرى.</p>
         </div>
+
         <div class="lobby-profile-grid">
           <div class="profile-card glass darken">
-            <div class="profile-photo-area">
-              <img id="myAvatarPreview" src="" alt="صورتي">
-              <label class="upload-avatar-btn">
-                <input id="avatarInput" type="file" accept="image/*">
-                رفع صورتك
-              </label>
+            <div class="profile-avatar-frame">
+              <img id="myAvatarPreview" src="{{ url_for('static', filename='avatars/leon.jpg') }}" alt="أفاتاري">
+              <div class="profile-avatar-glow"></div>
             </div>
             <div class="profile-fields">
               <label>
                 <span>اسمك</span>
-                <input id="profileNameInput" maxlength="24">
+                <input id="profileNameInput" maxlength="24" placeholder="اكتب اسمك">
               </label>
-              <label>
-                <span>الشخصية</span>
-                <select id="characterSelect">
-                  {% for key, character in characters.items() %}
-                  <option value="{{ key }}">{{ character.name }}</option>
-                  {% endfor %}
-                </select>
-              </label>
-              <button id="saveProfileBtn" class="primary-btn full">حفظ التعديلات</button>
+              <div class="avatar-action-row">
+                <label for="avatarInput" class="secondary-btn full upload-avatar-btn">رفع صورة من جهازك</label>
+                <input id="avatarInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+                <button id="clearAvatarBtn" type="button" class="ghost-btn full">إزالة الصورة المخصصة</button>
+              </div>
+              <div id="avatarStatus" class="avatar-status">تستخدم صورة الشخصية المختارة حاليًا.</div>
+              <button id="saveProfileBtn" class="primary-btn full">حفظ الاسم والشخصية والصورة</button>
+              <div class="form-note compact-note">
+                <img src="{{ url_for('static', filename='icons/alert.svg') }}" alt="">
+                <span>الصورة المخصصة اختيارية وتبقى داخل اللوبي. إن لم ترفع صورة فستظهر شخصية اللوبي كأفاتار تلقائي.</span>
+              </div>
             </div>
           </div>
+
           <div class="character-spotlight glass darken" id="characterSpotlight"></div>
         </div>
+
+        <div class="lobby-characters glass darken">
+          <div class="section-title-row">
+            <h2>شخصيات اللوبي</h2>
+            <span>4 شخصيات ثابتة</span>
+          </div>
+          <div id="lobbyCharacterGrid" class="lobby-character-grid">
+            {% for key, character in characters.items() %}
+            <article class="lobby-character-card {% if loop.first %}active{% endif %}" data-character="{{ key }}">
+              <img src="{{ character.avatar }}" alt="{{ character.name }}">
+              <div class="lobby-character-copy">
+                <h3>{{ character.name }}</h3>
+                <p>{{ character.bio }}</p>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        </div>
       </div>
+
       <aside id="settingsPanel" class="settings-panel glass darken hidden">
         <div class="panel-heading compact">
           <h2>إعدادات المضيف</h2>
-          <p>هذه الإعدادات لا تظهر إلا للمضيف.</p>
+          <p>تظهر للمضيف فقط، ويمكن تغييرها قبل بدء الجولة أو بعد نهاية الجولة.</p>
         </div>
         <label>
           <span>عدد أوراق البداية</span>
@@ -81,105 +115,85 @@
 
     <main class="room-grid">
       <aside class="left-column">
-        <section class="players-panel glass">
+        <section class="players-summary glass">
           <div class="section-title-row">
-            <h2>اللاعبون</h2>
-            <span id="playersMeta"></span>
+            <h2>إحصاء الغرفة</h2>
+            <span id="playersMeta">0 لاعب</span>
           </div>
-          <div id="playersRing" class="players-ring"></div>
-          <div class="bench-wrap">
-            <h3>خارج الجولة الحالية</h3>
-            <div id="benchPlayers" class="bench-players"></div>
-          </div>
+          <div id="benchPlayers" class="bench-players"></div>
         </section>
 
         <section class="rules-panel glass">
           <div class="rule-box">
-            <h3>قوانين أساسية</h3>
-            <p>طابق اللون أو الرقم أو نوع الحركة. إذا لم تستطع اللعب اسحب ورقة. إذا سحبت ورقة قابلة للعب يمكنك لعبها فورًا أو إنهاء دورك.</p>
+            <h3>القوانين الأساسية</h3>
+            <p>طابق اللون أو الرقم أو نوع الحركة. إذا لم تستطع اللعب اسحب ورقة. وإذا كانت الورقة المسحوبة قابلة للعب يمكنك لعبها أو إنهاء الدور.</p>
           </div>
           <div class="rule-box">
-            <h3>قوانين الورق الخاص</h3>
-            <p>Skip يتخطى التالي، Reverse يعكس الاتجاه، +2 يجبر التالي على سحب ورقتين، Wild يغيّر اللون، و +4 يغيّر اللون مع خيار التحدي.</p>
+            <h3>الأوراق الخاصة</h3>
+            <p>Skip يتخطى التالي، Reverse يعكس الاتجاه، +2 يجبر التالي على السحب، Wild يغيّر اللون، و +4 يفتح خيار التحدي فورًا.</p>
           </div>
           <div class="rule-box">
             <h3>UNO</h3>
-            <p>عندما يتبقى لديك ورقة واحدة يجب أن تضغط UNO. إذا نسي اللاعب يمكن كشفه ليَسحب ورقتين إضافيتين.</p>
+            <p>عندما يبقى لديك كرت واحد اضغط UNO بسرعة. إذا نسيت، يستطيع لاعب آخر كشفك لتسحب ورقتين عقوبة.</p>
           </div>
         </section>
       </aside>
 
-      <section class="table-column">
-        <section class="uno-table glass">
-          <div class="table-glow"></div>
-          <div id="centerStatus" class="center-status">
-            <div class="status-chip" id="gameMessage">بانتظار اللاعبين</div>
-            <div class="last-player-badge" id="lastPlayerBadge"></div>
-          </div>
+      <section class="stage-column glass">
+        <div class="center-status">
+          <div class="status-chip" id="gameMessage">بانتظار دخول اللاعبين</div>
+          <div class="last-player-badge" id="lastPlayerBadge"></div>
+        </div>
 
-          <div id="tableArena" class="table-arena">
-            <div id="drawPile" class="pile draw-pile">
-              <img src="{{ url_for('static', filename='cards/back.svg') }}" alt="draw pile">
-              <span id="drawCount">0</span>
-            </div>
-
-            <div id="discardPile" class="pile discard-pile">
-              <img id="topCardImage" src="{{ url_for('static', filename='cards/back.svg') }}" alt="top card">
-              <span id="currentColorBadge" class="color-badge">—</span>
-            </div>
-          </div>
-
-          <div class="controls-row">
-            <button id="drawCardBtn" class="secondary-btn">اسحب</button>
-            <button id="passTurnBtn" class="secondary-btn">إنهاء الدور</button>
-            <button id="callUnoBtn" class="primary-btn">UNO</button>
-            <button id="catchUnoBtn" class="secondary-btn">كشف UNO</button>
-          </div>
-
-          <div id="challengePanel" class="challenge-panel hidden">
-            <div class="challenge-text">تم لعب +4 عليك. هل تريد التحدي؟</div>
-            <div class="actions-row">
-              <button id="acceptWild4Btn" class="secondary-btn">قبول السحب</button>
-              <button id="challengeWild4Btn" class="primary-btn">تحدّي +4</button>
+        <div id="playersRing" class="players-ring">
+          <div class="table-square-wrap">
+            <div id="tableSquare" class="table-square">
+              <div class="table-square-glow"></div>
+              <div id="drawPile" class="center-stack draw-stack">
+                <img src="{{ url_for('static', filename='cards/back.svg') }}" alt="كومة السحب">
+                <span id="drawCount">0</span>
+              </div>
+              <div id="discardPile" class="center-stack discard-stack">
+                <img id="topCardImage" src="{{ url_for('static', filename='cards/back.svg') }}" alt="البطاقة العليا">
+                <span id="currentColorBadge" class="color-badge">—</span>
+              </div>
             </div>
           </div>
-        </section>
+        </div>
 
+        <div class="controls-row">
+          <button id="drawCardBtn" class="secondary-btn">اسحب ورقة</button>
+          <button id="passTurnBtn" class="secondary-btn">إنهاء الدور</button>
+          <button id="callUnoBtn" class="primary-btn">UNO!</button>
+          <button id="catchUnoBtn" class="secondary-btn">إمساك لاعب</button>
+        </div>
+
+        <div id="challengePanel" class="challenge-panel hidden">
+          <div class="challenge-text">تم لعب +4 عليك. هل تريد قبول السحب أم تحدّي الحركة؟</div>
+          <div class="actions-row">
+            <button id="acceptWild4Btn" class="secondary-btn">قبول +4</button>
+            <button id="challengeWild4Btn" class="primary-btn">تحدي +4</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="right-column">
         <section class="hand-panel glass">
           <div class="section-title-row">
-            <h2>أوراقك</h2>
-            <span id="handMeta"></span>
+            <h2>يدك الآن</h2>
+            <span id="handMeta">0 كرت</span>
           </div>
           <div id="myHandTray" class="my-hand-tray"></div>
         </section>
-      </section>
+      </aside>
     </main>
-  </div>
-
-
-
-  <div id="colorPickerModal" class="color-picker-modal hidden" aria-hidden="true">
-    <div class="color-picker-backdrop" id="colorPickerBackdrop"></div>
-    <div class="color-picker-panel glass">
-      <div class="panel-heading compact">
-        <h3>اختر اللون</h3>
-        <p>اختر اللون الذي تريد متابعة اللعب به.</p>
-      </div>
-      <div class="color-picker-grid">
-        <button type="button" class="modal-color-btn color-red" data-color="red">أحمر</button>
-        <button type="button" class="modal-color-btn color-blue" data-color="blue">أزرق</button>
-        <button type="button" class="modal-color-btn color-green" data-color="green">أخضر</button>
-        <button type="button" class="modal-color-btn color-yellow" data-color="yellow">أصفر</button>
-      </div>
-      <button type="button" id="closeColorPickerBtn" class="secondary-btn full">إلغاء</button>
-    </div>
   </div>
 
   <script>
     window.ROOM_ID = {{ room_id|tojson }};
     window.CHARACTERS = {{ characters|tojson }};
   </script>
-  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script src="{{ url_for('static', filename='js/room.js') }}"></script>
 </body>
 </html>

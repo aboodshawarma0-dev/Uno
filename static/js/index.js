@@ -36,21 +36,52 @@ function randomRoom() {
   return `UNO-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 }
 
-function goToRoom(create = false) {
-  const username = (usernameInput.value || '').trim() || 'زائر';
-  const roomId = slugRoom(roomIdInput.value) || (create ? randomRoom() : '');
-  if (!roomId) {
-    roomIdInput.focus();
-    roomIdInput.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'translateX(0)' }], { duration: 240 });
-    return;
-  }
-
-  const profile = {
+function storeProfile(username) {
+  const payload = {
     username,
     character: selectedCharacter,
     avatar: saved.avatar || '',
   };
-  localStorage.setItem('legendary-uno-profile', JSON.stringify(profile));
+  localStorage.setItem('legendary-uno-profile', JSON.stringify(payload));
+}
+
+function showNameRequired() {
+  usernameInput.focus();
+  usernameInput.animate(
+    [
+      { transform: 'translateX(0)' },
+      { transform: 'translateX(-6px)' },
+      { transform: 'translateX(6px)' },
+      { transform: 'translateX(0)' },
+    ],
+    { duration: 240 },
+  );
+  usernameInput.classList.add('input-error');
+  setTimeout(() => usernameInput.classList.remove('input-error'), 1200);
+}
+
+function goToRoom(create = false) {
+  const username = (usernameInput.value || '').trim();
+  if (!username) {
+    showNameRequired();
+    return;
+  }
+  const roomId = slugRoom(roomIdInput.value) || (create ? randomRoom() : '');
+  if (!roomId) {
+    roomIdInput.focus();
+    roomIdInput.animate(
+      [
+        { transform: 'translateX(0)' },
+        { transform: 'translateX(-6px)' },
+        { transform: 'translateX(6px)' },
+        { transform: 'translateX(0)' },
+      ],
+      { duration: 240 },
+    );
+    return;
+  }
+
+  storeProfile(username);
   location.href = `/room/${encodeURIComponent(roomId)}`;
 }
 
