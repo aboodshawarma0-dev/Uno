@@ -42,3 +42,7 @@
 - Rebuilt the OG image as discord-preview-v2.png with safer margins and larger text so Discord does not crop the right side.
 - Updated og:image and twitter:image references to the v2 file and added og:image:secure_url.
 - Enlarged the room boot/loading card and heading for a more prominent boot screen.
+
+- Rebuilt Discord preview image as discord-preview-v3.png with safe margins so all text stays inside Discord card bounds.
+- Updated embed title to: uno project "by abdallah".
+- Enlarged the room loading title and loading card.
