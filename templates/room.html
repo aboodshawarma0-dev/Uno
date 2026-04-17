@@ -156,6 +156,25 @@
     </main>
   </div>
 
+
+
+  <div id="colorPickerModal" class="color-picker-modal hidden" aria-hidden="true">
+    <div class="color-picker-backdrop" id="colorPickerBackdrop"></div>
+    <div class="color-picker-panel glass">
+      <div class="panel-heading compact">
+        <h3>اختر اللون</h3>
+        <p>اختر اللون الذي تريد متابعة اللعب به.</p>
+      </div>
+      <div class="color-picker-grid">
+        <button type="button" class="modal-color-btn color-red" data-color="red">أحمر</button>
+        <button type="button" class="modal-color-btn color-blue" data-color="blue">أزرق</button>
+        <button type="button" class="modal-color-btn color-green" data-color="green">أخضر</button>
+        <button type="button" class="modal-color-btn color-yellow" data-color="yellow">أصفر</button>
+      </div>
+      <button type="button" id="closeColorPickerBtn" class="secondary-btn full">إلغاء</button>
+    </div>
+  </div>
+
   <script>
     window.ROOM_ID = {{ room_id|tojson }};
     window.CHARACTERS = {{ characters|tojson }};

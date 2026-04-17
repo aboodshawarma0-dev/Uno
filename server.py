@@ -8,7 +8,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 from uno_engine import UnoGame
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'legendary-uno-secret')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'uno-secret')
 socketio = SocketIO(app, cors_allowed_origins='*', async_mode='gevent', max_http_buffer_size=5_000_000)
 
 rooms = {}
@@ -19,26 +19,31 @@ CHARACTERS = {
         'name': 'Leon S. Kennedy',
         'bio': 'عميل ميداني هادئ ودقيق، ممتاز تحت الضغط ويحب اللعب المحسوب.',
         'avatar': 'https://upload.wikimedia.org/wikipedia/commons/3/36/Resident_Evil_4_-_Leon_S._Kennedy.jpg',
+        'avatar_url': 'https://upload.wikimedia.org/wikipedia/commons/3/36/Resident_Evil_4_-_Leon_S._Kennedy.jpg',
     },
     'jill': {
         'name': 'Jill Valentine',
         'bio': 'مقاتلة ذكية وسريعة التكيّف، تركّز على النجاة والقرارات السريعة.',
         'avatar': 'https://upload.wikimedia.org/wikipedia/commons/c/c0/Jill_Valentine%2C_Resident_Evil_character_%28photographed_by_Shin_Illuits%2C_2011%29.jpg',
+        'avatar_url': 'https://upload.wikimedia.org/wikipedia/commons/c/c0/Jill_Valentine%2C_Resident_Evil_character_%28photographed_by_Shin_Illuits%2C_2011%29.jpg',
     },
     'claire': {
         'name': 'Claire Redfield',
         'bio': 'جريئة وتحب المخاطرة الذكية، أسلوبها هجومي لكن متوازن.',
         'avatar': 'https://upload.wikimedia.org/wikipedia/commons/d/d1/Claire_Resident_Evil_2.jpg',
+        'avatar_url': 'https://upload.wikimedia.org/wikipedia/commons/d/d1/Claire_Resident_Evil_2.jpg',
     },
     'ada': {
         'name': 'Ada Wong',
         'bio': 'غامضة وأنيقة وتحب المباغتة، مثالية لمن يريد شخصية واثقة.',
         'avatar': 'https://upload.wikimedia.org/wikipedia/commons/5/5d/Cosplayer_of_Ada_Wong%2C_Resident_Evil_at_PF23_20151025.jpg',
+        'avatar_url': 'https://upload.wikimedia.org/wikipedia/commons/5/5d/Cosplayer_of_Ada_Wong%2C_Resident_Evil_at_PF23_20151025.jpg',
     },
     'chris': {
         'name': 'Chris Redfield',
         'bio': 'قائد مباشر وقوي، مناسب لمن يحب السيطرة على إيقاع الجولة.',
         'avatar': 'https://upload.wikimedia.org/wikipedia/commons/d/db/Chris_Redfield_cosplayer_at_NCCBF_2010-04-18_2.JPG',
+        'avatar_url': 'https://upload.wikimedia.org/wikipedia/commons/d/db/Chris_Redfield_cosplayer_at_NCCBF_2010-04-18_2.JPG',
     },
 }
 
@@ -110,7 +115,7 @@ def handle_update_profile(data):
     if avatar:
         user['avatar'] = avatar
     elif not user.get('avatar'):
-        user['avatar'] = character['avatar']
+        user['avatar'] = character.get('avatar_url') or character['avatar']
     emit_room_state(room_id)
 
 

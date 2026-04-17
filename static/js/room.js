@@ -17,6 +17,7 @@ let speakingInterval = null;
 let micMuted = false;
 let speakerMuted = false;
 let lastRenderedActionKey = '';
+let pendingWildCardId = null;
 
 const els = {
   roomCode: document.getElementById('roomCode'),
@@ -58,6 +59,9 @@ const els = {
   toastStack: document.getElementById('toastStack'),
   tableArena: document.getElementById('tableArena'),
   discardPile: document.getElementById('discardPile'),
+  colorPickerModal: document.getElementById('colorPickerModal'),
+  colorPickerBackdrop: document.getElementById('colorPickerBackdrop'),
+  closeColorPickerBtn: document.getElementById('closeColorPickerBtn'),
 };
 
 els.roomCode.textContent = roomId;
@@ -87,6 +91,18 @@ function showToast(message, type = 'info') {
     toast.style.transform = 'translateX(-8px)';
     setTimeout(() => toast.remove(), 280);
   }, 3200);
+}
+
+function openColorPicker(cardId) {
+  pendingWildCardId = cardId;
+  els.colorPickerModal.classList.remove('hidden');
+  els.colorPickerModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeColorPicker() {
+  pendingWildCardId = null;
+  els.colorPickerModal.classList.add('hidden');
+  els.colorPickerModal.setAttribute('aria-hidden', 'true');
 }
 
 function renderCharacterSpotlight(key) {
@@ -156,7 +172,18 @@ els.catchUnoBtn.addEventListener('click', () => {
   socket.emit('catch_uno', { room_id: roomId, target_sid: targetSid });
 });
 
+els.colorPickerBackdrop?.addEventListener('click', closeColorPicker);
+els.closeColorPickerBtn?.addEventListener('click', closeColorPicker);
+document.querySelectorAll('.modal-color-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    if (!pendingWildCardId) return;
+    socket.emit('play_card', { room_id: roomId, card_id: pendingWildCardId, chosen_color: btn.dataset.color });
+    closeColorPicker();
+  });
+});
+
 els.settingsToggleBtn.addEventListener('click', () => {
+
   const willOpen = els.settingsPanel.classList.contains('hidden');
   els.settingsPanel.classList.toggle('hidden');
   els.settingsPanel.animate([
@@ -333,7 +360,7 @@ socket.on('webrtc_ice', async ({ candidate, from_sid }) => {
 
 socket.on('room_state', (state) => {
   roomState = state;
-  renderState();
+  renderAll();
   syncPeers();
 });
 
@@ -465,27 +492,13 @@ function renderMyHand() {
     const item = document.createElement('div');
     item.className = `hand-card ${playable.has(card.id) ? 'playable' : 'disabled'}`;
     item.dataset.cardId = card.id;
+    item.dataset.type = card.type;
     item.innerHTML = `<img src="${cardSrc(card.asset)}" alt="${card.label}">`;
-
-    if (card.type === 'wild' || card.type === 'wild4') {
-      const chooser = document.createElement('div');
-      chooser.className = 'wild-chooser';
-      ['red', 'yellow', 'green', 'blue'].forEach((color) => {
-        const btn = document.createElement('button');
-        btn.className = `color-pick ${color}`;
-        btn.addEventListener('click', (event) => {
-          event.stopPropagation();
-          socket.emit('play_card', { room_id: roomId, card_id: card.id, chosen_color: color });
-        });
-        chooser.appendChild(btn);
-      });
-      item.appendChild(chooser);
-    }
 
     item.addEventListener('click', () => {
       if (!playable.has(card.id)) return;
       if (card.type === 'wild' || card.type === 'wild4') {
-        item.classList.toggle('choosing');
+        openColorPicker(card.id);
         return;
       }
       socket.emit('play_card', { room_id: roomId, card_id: card.id });
@@ -522,7 +535,7 @@ function renderLobbyAndSettings() {
   }
 }
 
-function renderState() {
+function renderAll() {
   els.gameMessage.textContent = roomState.message;
   renderLobbyAndSettings();
   renderPlayers();
@@ -547,3 +560,6 @@ document.body.addEventListener('click', () => {
 
 socket.emit('join_room', { room_id: roomId, username: profile.username, character: profile.character, avatar: profile.avatar });
 window.addEventListener('beforeunload', () => socket.emit('leave_room_event', { room_id: roomId }));
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !els.colorPickerModal.classList.contains('hidden')) closeColorPicker();
+});
