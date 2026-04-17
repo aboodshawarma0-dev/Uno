@@ -204,19 +204,28 @@ function renderPlayers() {
   els.benchPlayers.innerHTML = '';
 
   const ringRect = els.playersRing.getBoundingClientRect();
-  const width = ringRect.width || 800;
-  const height = ringRect.height || 560;
+  const tableRect = document.getElementById('tableSquare')?.getBoundingClientRect() || {};
+  const width = ringRect.width || 920;
+  const height = ringRect.height || 660;
   const centerX = width / 2;
   const centerY = height / 2;
-  const radiusX = Math.max(160, Math.min(width * 0.38, 320));
-  const radiusY = Math.max(150, Math.min(height * 0.34, 220));
+  const isMobile = window.innerWidth <= 720;
+  const nodeWidth = isMobile ? 132 : 176;
+  const nodeHeight = isMobile ? 134 : 162;
+  const safeX = (tableRect.width || Math.min(width * 0.38, 360)) / 2 + (nodeWidth / 2) + (isMobile ? 28 : 88);
+  const safeY = (tableRect.height || Math.min(width * 0.38, 360)) / 2 + (nodeHeight / 2) + (isMobile ? 52 : 112);
+  const radiusX = Math.max(safeX, Math.min((width / 2) - (nodeWidth / 2) - 18, width * (isMobile ? 0.39 : 0.45)));
+  const radiusY = Math.max(safeY, Math.min((height / 2) - (nodeHeight / 2) - 18, height * (isMobile ? 0.38 : 0.43)));
+  els.playersRing.style.setProperty('--ring-radius-x', `${radiusX}px`);
+  els.playersRing.style.setProperty('--ring-radius-y', `${radiusY}px`);
 
   players.forEach((player, index) => {
     const count = Math.max(players.length, 1);
-    const baseAngle = ((index / count) * Math.PI * 2) - (Math.PI / 2);
+    const angleOffset = count === 2 ? -Math.PI / 2 : -Math.PI / 2;
+    const baseAngle = ((index / count) * Math.PI * 2) + angleOffset;
     const seed = hashSeed(player.id);
-    const jitterX = ((seed % 15) - 7);
-    const jitterY = (((seed >> 4) % 15) - 7);
+    const jitterX = isMobile ? 0 : ((seed % 11) - 5);
+    const jitterY = isMobile ? 0 : (((seed >> 4) % 11) - 5);
     const x = centerX + Math.cos(baseAngle) * radiusX + jitterX;
     const y = centerY + Math.sin(baseAngle) * radiusY + jitterY;
     const node = document.createElement('article');
@@ -225,6 +234,7 @@ function renderPlayers() {
     node.style.left = `${x}px`;
     node.style.top = `${y}px`;
     node.innerHTML = `
+      <span class="voice-live${player.speaking ? ' active' : ''}">يتحدث</span>
       <img class="avatar" src="${player.avatar || window.CHARACTERS[player.character]?.avatar || ''}" alt="${player.name}">
       <div class="player-name">${player.name}</div>
       <div class="player-subtext">${playerStateLabel(player)}</div>
@@ -266,6 +276,7 @@ function renderTopCard() {
   els.topCardImage.src = cardSrc(currentTop);
   els.drawCount.textContent = roomState?.draw_pile_count ?? 0;
   els.currentColorBadge.textContent = colorMap[roomState?.current_color] || 'تحضير';
+  els.currentColorBadge.dataset.color = roomState?.current_color || 'wild';
   const rotationSeed = hashSeed(roomState?.top_card?.id || currentTop);
   const rotation = ((rotationSeed % 18) - 9);
   els.topCardImage.style.setProperty('--top-card-rotation', `${rotation}deg`);

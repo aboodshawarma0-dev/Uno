@@ -44,6 +44,17 @@ CHARACTERS = {
 }
 
 
+
+
+@app.after_request
+def apply_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'camera=(), geolocation=(), magnetometer=(), gyroscope=()'
+    response.headers['Cross-Origin-Resource-Policy'] = 'same-origin'
+    return response
+
 @app.route('/')
 def index():
     return render_template('index.html', characters=CHARACTERS)
