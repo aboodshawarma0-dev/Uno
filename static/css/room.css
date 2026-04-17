@@ -39,24 +39,25 @@
 .loading-panel {
   position: relative;
   z-index: 2;
-  width: min(92vw, 430px);
+  width: min(92vw, 520px);
   text-align: center;
 }
 
 .loading-card {
-  width: min(58vw, 224px);
+  width: min(72vw, 318px);
   filter: drop-shadow(0 26px 38px rgba(0,0,0,.45));
   animation: introCardFade 2.5s cubic-bezier(.2,.7,.18,1) forwards;
 }
 
 .loading-panel h1 {
-  margin: 16px 0 14px;
-  font-size: clamp(1.2rem, 2vw, 1.8rem);
+  margin: 18px 0 16px;
+  font-size: clamp(1.55rem, 3.1vw, 2.5rem);
+  letter-spacing: .04em;
 }
 
 .loading-bar-shell {
   width: 100%;
-  height: 14px;
+  height: 16px;
   border-radius: 999px;
   overflow: hidden;
   background: rgba(255,255,255,.08);
@@ -74,9 +75,10 @@
 }
 
 .loading-label {
-  margin-top: 12px;
+  margin-top: 14px;
   color: #f1c85f;
-  letter-spacing: .22rem;
+  font-size: 1.02rem;
+  letter-spacing: .26rem;
   font-weight: 900;
   text-transform: uppercase;
   animation: loadingPulse 1s ease infinite;

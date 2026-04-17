@@ -36,3 +36,9 @@
 - Added Open Graph and Twitter card meta tags to index and room pages.
 - Added static/icons/discord-preview.png for Discord preview cards.
 - Verified templates contain og:title, og:description, and og:image tags.
+
+
+[2026-04-17] Discord preview refresh
+- Rebuilt the OG image as discord-preview-v2.png with safer margins and larger text so Discord does not crop the right side.
+- Updated og:image and twitter:image references to the v2 file and added og:image:secure_url.
+- Enlarged the room boot/loading card and heading for a more prominent boot screen.
