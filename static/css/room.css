@@ -440,8 +440,9 @@
 
 .player-node {
   position: absolute;
-  width: 188px;
-  padding: 10px 12px;
+  width: 172px;
+  min-height: 118px;
+  padding: 10px 11px;
   border-radius: 24px;
   background: linear-gradient(180deg, rgba(13,22,32,.98), rgba(8,14,22,.95));
   border: 1px solid rgba(255,255,255,.1);
@@ -450,11 +451,11 @@
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, filter .18s ease;
   backdrop-filter: blur(14px);
   display: grid;
-  grid-template-columns: 56px 1fr;
+  grid-template-columns: 50px 1fr;
   grid-template-areas:
-    "avatar name"
+    "avatar head"
     "avatar subtext"
-    "voice meta";
+    "avatar stats";
   column-gap: 10px;
   row-gap: 4px;
   align-items: center;
@@ -472,8 +473,8 @@
 
 .player-node img.avatar {
   grid-area: avatar;
-  width: 56px;
-  height: 56px;
+  width: 50px;
+  height: 50px;
   display: block;
   margin: 0;
   border-radius: 999px;
@@ -482,49 +483,77 @@
   box-shadow: 0 10px 22px rgba(0,0,0,.24);
 }
 
+.player-head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .player-name {
-  grid-area: name;
   text-align: right;
   font-weight: 800;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.2;
+  min-width: 0;
+  flex: 1;
 }
+
+.mini-badge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 2px 7px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.06);
+  font-size: .63rem;
+  line-height: 1.1;
+}
+
+.mini-badge.host { background: rgba(61,220,151,.14); color: #adf7d1; }
 
 .player-subtext {
   grid-area: subtext;
   text-align: right;
   color: var(--muted);
-  font-size: .79rem;
+  font-size: .77rem;
   margin-top: 0;
-  line-height: 1.25;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.player-meta {
-  grid-area: meta;
+.player-stats {
+  grid-area: stats;
   margin-top: 0;
   display: flex;
-  justify-content: flex-end;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 4px;
+  min-height: 32px;
+  max-height: 32px;
+  overflow: hidden;
 }
 
-.tag {
+.stat-pill {
   border-radius: 999px;
   padding: 3px 7px;
   background: rgba(255,255,255,.06);
   border: 1px solid rgba(255,255,255,.05);
-  font-size: .7rem;
-  line-height: 1.15;
+  font-size: .68rem;
+  line-height: 1.1;
 }
 
-.tag.turn-tag { background: rgba(56,189,248,.14); }
-.tag.uno-tag { background: rgba(255,206,62,.16); color: #ffe187; }
-.tag.host-tag { background: rgba(61,220,151,.14); }
+.stat-pill.turn { background: rgba(56,189,248,.14); }
+.stat-pill.uno { background: rgba(255,206,62,.16); color: #ffe187; }
 
 .voice-live {
-  grid-area: voice;
+  position: absolute;
+  top: -10px;
+  left: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -540,7 +569,7 @@
   opacity: .38;
   transform: translateY(0);
   transition: opacity .18s ease, transform .18s ease;
-  justify-self: start;
+  z-index: 2;
 }
 
 .player-node.speaking::after {
@@ -649,8 +678,8 @@
 
 @media (max-width: 720px) {
   .room-shell { width: min(100% - 12px, 1500px); }
-  .player-node { width: 156px; padding: 9px 10px; grid-template-columns: 48px 1fr; }
-  .player-node img.avatar { width: 48px; height: 48px; }
+  .player-node { width: 150px; min-height: 108px; padding: 9px 9px; grid-template-columns: 46px 1fr; }
+  .player-node img.avatar { width: 46px; height: 46px; }
   .table-square { min-width: 230px; min-height: 230px; }
   .center-stack img { width: 106px; }
   .hand-card { width: 94px; }
@@ -759,9 +788,10 @@
   .players-ring { min-height: 760px; }
   .table-square-wrap { min-height: 760px; }
   .table-square { min-width: 236px; min-height: 236px; }
-  .player-node { width: 160px; padding: 8px 9px; grid-template-columns: 46px 1fr; }
-  .voice-live { font-size: .62rem; padding: 3px 7px; }
-  .player-node img.avatar { width: 46px; height: 46px; }
-  .tag { font-size: .64rem; }
+  .player-node { width: 150px; min-height: 108px; padding: 8px 8px; grid-template-columns: 44px 1fr; }
+  .voice-live { font-size: .62rem; padding: 3px 7px; left: 8px; }
+  .player-node img.avatar { width: 44px; height: 44px; }
+  .stat-pill { font-size: .62rem; }
+  .mini-badge { font-size: .58rem; }
   .status-chip { max-width: 92%; }
 }

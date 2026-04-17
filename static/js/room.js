@@ -20,6 +20,8 @@ let speakerMuted = false;
 let hasJoinedRoom = false;
 let introFinished = false;
 let roomStateArrived = false;
+let joinRetryTimer = null;
+let joinAttempts = 0;
 let lastRenderedActionKey = '';
 let decorativeCardAsset = randomDecorCard();
 
@@ -203,6 +205,20 @@ function renderPlayers() {
   els.playersRing.querySelectorAll('.player-node').forEach((node) => node.remove());
   els.benchPlayers.innerHTML = '';
 
+  if (!players.length) {
+    const item = document.createElement('div');
+    item.className = 'bench-card';
+    item.innerHTML = `
+      <img src="${currentCharacterAvatar()}" alt="بانتظار">
+      <div>
+        <strong>بانتظار اللاعبين</strong>
+        <small>أول من يدخل سيظهر هنا فورًا</small>
+      </div>
+      <span class="status-mini">0</span>`;
+    els.benchPlayers.appendChild(item);
+    return;
+  }
+
   const ringRect = els.playersRing.getBoundingClientRect();
   const tableRect = document.getElementById('tableSquare')?.getBoundingClientRect() || {};
   const width = ringRect.width || 920;
@@ -210,22 +226,21 @@ function renderPlayers() {
   const centerX = width / 2;
   const centerY = height / 2;
   const isMobile = window.innerWidth <= 720;
-  const nodeWidth = isMobile ? 132 : 176;
-  const nodeHeight = isMobile ? 134 : 162;
-  const safeX = (tableRect.width || Math.min(width * 0.38, 360)) / 2 + (nodeWidth / 2) + (isMobile ? 28 : 88);
-  const safeY = (tableRect.height || Math.min(width * 0.38, 360)) / 2 + (nodeHeight / 2) + (isMobile ? 52 : 112);
-  const radiusX = Math.max(safeX, Math.min((width / 2) - (nodeWidth / 2) - 18, width * (isMobile ? 0.39 : 0.45)));
-  const radiusY = Math.max(safeY, Math.min((height / 2) - (nodeHeight / 2) - 18, height * (isMobile ? 0.38 : 0.43)));
+  const nodeWidth = isMobile ? 148 : 172;
+  const nodeHeight = isMobile ? 108 : 118;
+  const safeX = (tableRect.width || Math.min(width * 0.38, 360)) / 2 + (nodeWidth / 2) + (isMobile ? 28 : 98);
+  const safeY = (tableRect.height || Math.min(width * 0.38, 360)) / 2 + (nodeHeight / 2) + (isMobile ? 44 : 94);
+  const radiusX = Math.max(safeX, Math.min((width / 2) - (nodeWidth / 2) - 18, width * (isMobile ? 0.39 : 0.46)));
+  const radiusY = Math.max(safeY, Math.min((height / 2) - (nodeHeight / 2) - 18, height * (isMobile ? 0.38 : 0.44)));
   els.playersRing.style.setProperty('--ring-radius-x', `${radiusX}px`);
   els.playersRing.style.setProperty('--ring-radius-y', `${radiusY}px`);
 
   players.forEach((player, index) => {
     const count = Math.max(players.length, 1);
-    const angleOffset = count === 2 ? -Math.PI / 2 : -Math.PI / 2;
-    const baseAngle = ((index / count) * Math.PI * 2) + angleOffset;
+    const baseAngle = ((index / count) * Math.PI * 2) - (Math.PI / 2);
     const seed = hashSeed(player.id);
-    const jitterX = isMobile ? 0 : ((seed % 11) - 5);
-    const jitterY = isMobile ? 0 : (((seed >> 4) % 11) - 5);
+    const jitterX = isMobile ? 0 : ((seed % 9) - 4);
+    const jitterY = isMobile ? 0 : (((seed >> 4) % 9) - 4);
     const x = centerX + Math.cos(baseAngle) * radiusX + jitterX;
     const y = centerY + Math.sin(baseAngle) * radiusY + jitterY;
     const node = document.createElement('article');
@@ -236,14 +251,16 @@ function renderPlayers() {
     node.innerHTML = `
       <span class="voice-live${player.speaking ? ' active' : ''}">يتحدث</span>
       <img class="avatar" src="${player.avatar || window.CHARACTERS[player.character]?.avatar || ''}" alt="${player.name}">
-      <div class="player-name">${player.name}</div>
+      <div class="player-head">
+        <div class="player-name" title="${player.name}">${player.name}</div>
+        ${player.is_host ? '<span class="mini-badge host">مضيف</span>' : ''}
+      </div>
       <div class="player-subtext">${playerStateLabel(player)}</div>
-      <div class="player-meta">
-        ${player.is_host ? '<span class="tag host-tag">مضيف</span>' : ''}
-        <span class="tag">${player.score} نقطة</span>
-        <span class="tag">${player.hand_count} كرت</span>
-        ${player.is_turn ? '<span class="tag turn-tag">دوره</span>' : ''}
-        ${player.uno_pending || player.said_uno ? '<span class="tag uno-tag">UNO</span>' : ''}
+      <div class="player-stats">
+        <span class="stat-pill">${player.score} نقطة</span>
+        <span class="stat-pill">${player.hand_count} كرت</span>
+        ${player.is_turn ? '<span class="stat-pill turn">دوره</span>' : ''}
+        ${player.uno_pending || player.said_uno ? '<span class="stat-pill uno">UNO</span>' : ''}
       </div>
     `;
     els.playersRing.appendChild(node);
@@ -560,13 +577,37 @@ function syncPeers() {
   });
 }
 
-function joinRoomNow() {
+function clearJoinRetry() {
+  if (joinRetryTimer) {
+    clearTimeout(joinRetryTimer);
+    joinRetryTimer = null;
+  }
+}
+
+function scheduleJoinRetry() {
+  clearJoinRetry();
+  if (roomStateArrived || joinAttempts >= 4) return;
+  joinRetryTimer = setTimeout(() => {
+    if (roomStateArrived) return;
+    socket.emit('join_room', {
+      room_id: roomId,
+      username: (profile.username || '').trim(),
+      character: profile.character,
+      avatar: profile.avatar || '',
+    });
+    joinAttempts += 1;
+    scheduleJoinRetry();
+  }, 1200);
+}
+
+function joinRoomNow(forceRetry = false) {
   const cleanName = (profile.username || '').trim();
   if (!cleanName) {
     showToast('لا يوجد اسم محفوظ. سيتم إعادتك إلى اللوبي الخارجي.', 'warning');
     setTimeout(() => { location.href = `/?room=${encodeURIComponent(roomId)}`; }, 600);
     return;
   }
+  if (!forceRetry && roomStateArrived) return;
   socket.emit('join_room', {
     room_id: roomId,
     username: cleanName,
@@ -574,6 +615,8 @@ function joinRoomNow() {
     avatar: profile.avatar || '',
   });
   hasJoinedRoom = true;
+  joinAttempts += 1;
+  scheduleJoinRetry();
 }
 
 els.startingCardsInput.addEventListener('input', () => {
@@ -645,10 +688,8 @@ socket.on('connect', () => {
     location.href = `/?room=${encodeURIComponent(roomId)}`;
     return;
   }
-  if (!hasJoinedRoom) {
-    joinRoomNow();
-  } else {
-    socket.emit('join_room', { room_id: roomId, username: profile.username, character: profile.character, avatar: profile.avatar || '' });
+  if (!hasJoinedRoom || !roomStateArrived) {
+    joinRoomNow(true);
   }
 });
 
@@ -701,6 +742,7 @@ socket.on('webrtc_ice', async ({ candidate, from_sid }) => {
 socket.on('room_state', (state) => {
   roomState = state;
   roomStateArrived = true;
+  clearJoinRetry();
   maybeHideIntro();
   renderState();
   syncPeers();
