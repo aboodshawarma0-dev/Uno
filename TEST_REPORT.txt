@@ -30,3 +30,9 @@
 - تخفيف ضغط الشبكة بإلغاء room_state المتكرر عند كل تبدل في التحدث والاكتفاء بحدث user_speaking.
 - تحسين WebRTC بإضافة إعادة ربط المسارات الصوتية، وتشغيل الصوت البعيد بعد أول لمسة داخل الغرفة، وطابور مؤقت لمرشحات ICE المبكرة.
 - إضافة شارة مايك صغيرة على بطاقات اللاعبين تتوهج باللون الأخضر عند التحدث وتظهر باللون الأحمر عند الكتم.
+
+
+[Discord Embed]
+- Added Open Graph and Twitter card meta tags to index and room pages.
+- Added static/icons/discord-preview.png for Discord preview cards.
+- Verified templates contain og:title, og:description, and og:image tags.
